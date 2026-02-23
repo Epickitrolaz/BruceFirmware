@@ -60,6 +60,9 @@ export const supportedDevices = writable<Device[]>([]);
 export const selectedDevice = writable<string>('All Devices');
 export const filteredApps = writable<App[]>([]);
 export const filteredCategories = writable<Category[]>([]);
+export const searchQuery = writable<string>('');
+export const searchedApps = writable<App[]>([]);
+export const searchFilteredCategories = writable<Category[]>([]);
 
 // Function to calculate device-filtered category counts
 function calculateFilteredCategories(deviceName: string, deviceScreenSize: string) {
@@ -67,7 +70,22 @@ function calculateFilteredCategories(deviceName: string, deviceScreenSize: strin
 	const currentCategories = get(categories);
 	if (!data || !currentCategories.length) return;
 	
+	// Get all apps from the original data to calculate "All" category properly
+	const allAppsFromData = data.categories.flatMap(cat => cat.apps);
+	const allCompatibleApps = allAppsFromData
+		.filter(app => isAppCompatibleWithDevice(app, deviceName, deviceScreenSize))
+		.sort((a, b) => a.name.localeCompare(b.name));
+	
 	const filteredCategoriesList = currentCategories.map(category => {
+		if (category.slug === 'all') {
+			// Handle "All" category with all compatible apps from original data
+			return {
+				...category,
+				count: allCompatibleApps.length,
+				apps: allCompatibleApps
+			};
+		}
+		
 		const compatibleApps = category.apps
 			.filter(app => isAppCompatibleWithDevice(app, deviceName, deviceScreenSize))
 			.sort((a, b) => a.name.localeCompare(b.name));
@@ -125,6 +143,63 @@ function isAppCompatibleWithDevice(app: App, deviceName: string, deviceScreenSiz
 	return false;
 }
 
+// Function to apply search filter
+export function applySearchFilter(query: string) {
+	searchQuery.set(query);
+	
+	const currentFilteredApps = get(filteredApps);
+	const currentFilteredCategories = get(filteredCategories);
+	
+	if (query === '') {
+		searchedApps.set(currentFilteredApps);
+		searchFilteredCategories.set(currentFilteredCategories);
+		return;
+	}
+	
+	const lowerQuery = query.toLowerCase();
+	
+	// Filter apps and count categories in a single pass
+	const categoryCount = new Map<string, number>();
+	const filtered: App[] = [];
+	
+	for (const app of currentFilteredApps) {
+		if (app.name.toLowerCase().includes(lowerQuery) ||
+			app.description?.toLowerCase().includes(lowerQuery) ||
+			app.owner?.toLowerCase().includes(lowerQuery)) {
+			filtered.push(app);
+			const categoryKey = app.category.toLowerCase();
+			categoryCount.set(categoryKey, (categoryCount.get(categoryKey) || 0) + 1);
+		}
+	}
+	
+	// Update category counts efficiently, with special handling for "All" category
+	const updatedCategories = currentFilteredCategories.map(category => {
+		if (category.slug === 'all') {
+			// "All" category should show total count of all filtered apps
+			return {
+				...category,
+				count: filtered.length
+			};
+		}
+		
+		const newCount = categoryCount.get(category.name.toLowerCase()) || 0;
+		return newCount !== category.count 
+			? { ...category, count: newCount }
+			: category;
+	});
+	
+	searchedApps.set(filtered);
+	searchFilteredCategories.set(updatedCategories);
+}
+
+// Function to initialize search stores with current filtered data
+export function initializeSearch() {
+	const currentFilteredApps = get(filteredApps);
+	const currentFilteredCategories = get(filteredCategories);
+	searchedApps.set(currentFilteredApps);
+	searchFilteredCategories.set(currentFilteredCategories);
+}
+
 // Function to apply device filter to current category apps
 export function applyDeviceFilter(deviceName: string) {
 	selectedDevice.set(deviceName);
@@ -143,6 +218,19 @@ export function applyDeviceFilter(deviceName: string) {
 		.sort((a, b) => a.name.localeCompare(b.name));
 	
 	filteredApps.set(filtered);
+	
+	// Update search stores with the new filtered data - use a setTimeout to ensure store is updated
+	setTimeout(() => {
+		const updatedFilteredCategories = get(filteredCategories);
+		searchedApps.set(filtered);
+		searchFilteredCategories.set(updatedFilteredCategories);
+		
+		// If there's an active search, re-apply it with the new filtered data
+		const currentSearchQuery = get(searchQuery);
+		if (currentSearchQuery !== '') {
+			applySearchFilter(currentSearchQuery);
+		}
+	}, 0);
 }
 export async function loadAllData() {
 	try {
