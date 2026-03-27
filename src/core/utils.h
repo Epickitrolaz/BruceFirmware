@@ -5,6 +5,7 @@
 void backToMenu();
 void addOptionToMainMenu();
 int getBattery() __attribute__((weak));
+float getBatteryVoltage();
 void updateClockTimezone();
 void updateTimeStr(struct tm timeInfo);
 void showDeviceInfo();

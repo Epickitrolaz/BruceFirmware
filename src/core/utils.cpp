@@ -64,6 +64,20 @@ int getBattery() {
     return 0;
 }
 
+float getBatteryVoltage() {
+#ifdef USE_BQ27220_VIA_I2C
+    return (float)bq.getVolt(VOLT_MODE::VOLT) / 1000.0f;
+#endif
+#ifdef ANALOG_BAT_PIN
+#ifndef ANALOG_BAT_MULTIPLIER
+#define ANALOG_BAT_MULTIPLIER 2.0f
+#endif
+    uint32_t adcReading = analogReadMilliVolts(ANALOG_BAT_PIN);
+    return (float)adcReading * ANALOG_BAT_MULTIPLIER / 1000.0f;
+#endif
+    return 0.0f;
+}
+
 void updateClockTimezone() {
     timeClient.begin();
     timeClient.update();

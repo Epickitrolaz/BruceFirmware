@@ -894,24 +894,23 @@ void printCenterFootnote(String text) {
 ** Description:   Draws battery info into the Status bar
 ***************************************************************************************/
 void drawBatteryStatus(uint8_t bat) {
-    if (bat == 0) return;
+    float voltage = getBatteryVoltage();
+    if (voltage <= 0) return;
 
     bool charging = isCharging();
 
-    uint16_t color = bruceConfig.priColor;
-    uint16_t barcolor = bruceConfig.priColor;
-    if (bat < 16) barcolor = color = TFT_RED;
-    else if (bat < 34) barcolor = color = TFT_YELLOW;
-    if (charging) color = TFT_GREEN;
-
-    tft.drawRoundRect(tftWidth - 43, 6, 36, 19, 2, charging ? color : bruceConfig.bgColor); // (bolder border)
-    tft.drawRoundRect(tftWidth - 42, 7, 34, 17, 2, color);
     tft.setTextSize(FP);
     tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
-    tft.drawRightString((bat == 100 ? "" : " ") + String(bat) + "%", tftWidth - 45, 12, 1);
-    tft.fillRoundRect(tftWidth - 40, 9, 30 * bat / 100, 13, 2, barcolor);
-    tft.drawLine(tftWidth - 30, 9, tftWidth - 30, 9 + 13, bruceConfig.bgColor);
-    tft.drawLine(tftWidth - 20, 9, tftWidth - 20, 9 + 13, bruceConfig.bgColor);
+
+    char voltageStr[8];
+    dtostrf(voltage, 4, 2, voltageStr);
+    String displayStr = String(voltageStr) + "V";
+
+    if (charging) {
+        tft.setTextColor(TFT_GREEN, bruceConfig.bgColor);
+    }
+
+    tft.drawRightString(displayStr, tftWidth - 10, 12, 1);
 }
 /***************************************************************************************
 ** Function name: drawWireguardStatus()
