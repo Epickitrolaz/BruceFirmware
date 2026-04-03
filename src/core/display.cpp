@@ -777,9 +777,7 @@ void drawStatusBar() {
     int i = 0;
     uint8_t bat = getBattery();
     uint8_t bat_margin = 85;
-    if (bat > 0) {
-        drawBatteryStatus(bat);
-    } else bat_margin = 26;
+    drawBatteryStatus(bat);
     if (sdcardMounted) {
         tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
         tft.setTextSize(FP);
@@ -895,7 +893,6 @@ void printCenterFootnote(String text) {
 ***************************************************************************************/
 void drawBatteryStatus(uint8_t bat) {
     float voltage = getBatteryVoltage();
-    if (voltage <= 0) return;
 
     bool charging = isCharging();
 
@@ -903,7 +900,11 @@ void drawBatteryStatus(uint8_t bat) {
     tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
 
     char voltageStr[8];
-    dtostrf(voltage, 4, 2, voltageStr);
+    if (voltage > 0) {
+        dtostrf(voltage, 4, 2, voltageStr);
+    } else {
+        strcpy(voltageStr, "0.00");
+    }
     String displayStr = String(voltageStr) + "V";
 
     if (charging) {
